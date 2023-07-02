@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Links</title>
+  <!-- Include Tailwind CSS CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <!-- Include Font Awesome CDN -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-200">
+  <div class="container mx-auto py-4">
+    <div class="bg-white p-4">
+      <h2 class="text-lg font-semibold mb-4">Links</h2>
+      <div id="linksContainer" class="space-y-4">
+        <!-- Links will be dynamically added here -->
+      </div>
+      <div class="flex justify-end mt-4">
+        <button id="addLink" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Add Link</button>
+        <button id="addCategory" class="ml-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Add Category</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let linkId = 0;
+    let categoryId = 0;
+
+    // Function to create a new link item
+    function createLinkItem(linkId, name, icon, url) {
+      const linkItem = document.createElement('div');
+      linkItem.classList.add('flex', 'items-center');
+
+      const iconElement = document.createElement('span');
+      iconElement.classList.add('mr-2', 'text-xl');
+      iconElement.innerHTML = icon;
+
+      const nameElement = document.createElement('span');
+      nameElement.classList.add('text-blue-500', 'cursor-pointer');
+      nameElement.innerText = name;
+      nameElement.addEventListener('click', function() {
+        window.open(url, '_blank');
+      });
+
+      const editElement = document.createElement('span');
+      editElement.classList.add('ml-2', 'text-gray-500', 'cursor-pointer');
+      editElement.innerHTML = '<i class="fas fa-edit"></i>';
+      editElement.addEventListener('click', function(event) {
+        event.stopPropagation();
+        const newName = prompt('Enter the link name:', nameElement.innerText);
+        if (newName) {
+          nameElement.innerText = newName;
+          saveLinks();
+        }
+      });
+
+      const removeElement = document.createElement('span');
+      removeElement.classList.add('ml-2', 'text-red-500', 'cursor-pointer');
+      removeElement.innerHTML = '<i class="fas fa-trash-alt"></i>';
+      removeElement.addEventListener('click', function(event) {
+        event.stopPropagation();
+        linkItem.remove();
+        saveLinks();
+      });
+
+      linkItem.appendChild(iconElement);
+      linkItem.appendChild(nameElement);
+      linkItem.appendChild(editElement);
+      linkItem.appendChild(removeElement);
+
+      return linkItem;
+    }
+
+    // Function to add a new link
+    function addLink() {
+      const linkContainer = document.createElement('div');
+      linkContainer.id = `link${linkId}`;
+
+      const name = prompt('Enter the link name:');
+      const icon = prompt('Enter the Font Awesome icon class:');
+      const url = prompt('Enter the link URL:');
+      if (name && icon && url) {
+        const linkItem = createLinkItem(linkId, name, `<i class="${icon}"></i>`, url);
+        linkContainer.appendChild(linkItem);
+        document.getElementById('linksContainer').appendChild(linkContainer);
+        saveLinks();
+        linkId++;
+      }
+    }
+
+    // Function to remove a link
+    function removeLink(linkId) {
+      const linkContainer = document.getElementById(`link${linkId}`);
+      linkContainer.remove();
+      saveLinks();
+    }
+
+    // Function to create a new category
+    function createCategory(categoryId, categoryName) {
+      const categoryContainer = document.createElement('div');
+      categoryContainer.id = `category${categoryId}`;
+
+      const categoryHeader = document.createElement('h2');
+      categoryHeader.classList.add('text-lg', 'font-semibold', 'mb-4');
+      categoryHeader.innerText = categoryName;
+
+      const categoryLinks = document.createElement('div');
+      categoryLinks.classList.add('space-y-2');
+      categoryContainer.appendChild(categoryHeader);
+      categoryContainer.appendChild(categoryLinks);
+
+      return categoryContainer;
+    }
+
+    // Function to add a new category
+    function addCategory() {
+      const categoryContainer = document.createElement('div');
+      categoryContainer.classList.add('bg-white', 'p-4');
+      categoryContainer.id = `category${categoryId}`;
+
+      const categoryName = prompt('Enter the category name:');
+      if (categoryName) {
+        const category = createCategory(categoryId, categoryName);
+        document.getElementById('linksContainer').appendChild(category);
+        saveLinks();
+        categoryId++;
+      }
+    }
+
+    // Function to remove a category
+    function removeCategory(categoryId) {
+      const categoryContainer = document.getElementById(`category${categoryId}`);
+      categoryContainer.remove();
+      saveLinks();
+    }
+
+    // Function to save links to local storage
+    function saveLinks() {
+      const linksContainer = document.getElementById('linksContainer');
+      const linkElements = linksContainer.children;
+
+      const linksData = [];
+      let currentCategory = null;
+
+      for (let i = 0; i < linkElements.length; i++) {
+        const linkElement = linkElements[i];
+        const isCategory = linkElement.tagName === 'DIV' && linkElement.classList.contains('bg-white');
+
+        if (isCategory) {
+          const categoryId = linkElement.id.replace('category', '');
+          currentCategory = {
+            id: categoryId,
+            name: linkElement.querySelector('h2').innerText,
+            links: [],
+          };
+          linksData.push(currentCategory);
+        } else if (currentCategory) {
+          const linkId = linkElement.id.replace('link', '');
+          const name = linkElement.querySelector('span:nth-child(2)').innerText;
+          const icon = linkElement.querySelector('span:first-child').innerHTML;
+          const url = linkElement.querySelector('span:nth-child(2)').getAttribute('data-url');
+          currentCategory.links.push({ id: linkId, name, icon, url });
+        }
+      }
+
+      // Save links to text file
+      const linksText = JSON.stringify(linksData);
+      fetch('/save-links.php', {
+        method: 'POST',
+        body: linksText
+      })
+      .then(response => {
+        if (response.ok) {
+          console.log('Links saved successfully');
+        } else {
+          console.log('Failed to save links');
+        }
+      })
+      .catch(error => {
+        console.error('Error saving links:', error);
+      });
+    }
+
+    // Function to load links from text file
+    function loadLinks() {
+      fetch('/load-links.php')
+        .then(response => response.text())
+        .then(data => {
+          const linksData = JSON.parse(data);
+          linksData.forEach(categoryData => {
+            const category = createCategory(categoryData.id, categoryData.name);
+            categoryData.links.forEach(linkData => {
+              const linkItem = createLinkItem(linkData.id, linkData.name, linkData.icon, linkData.url);
+              category.querySelector('.space-y-2').appendChild(linkItem);
+            });
+            document.getElementById('linksContainer').appendChild(category);
+          });
+        })
+        .catch(error => {
+          console.error('Error loading links:', error);
+        });
+    }
+
+    // Event listeners for adding links and categories
+    document.getElementById('addLink').addEventListener('click', addLink);
+    document.getElementById('addCategory').addEventListener('click', addCategory);
+
+    // Load links when the HTML is loaded
+    window.addEventListener('DOMContentLoaded', loadLinks);
+  </script>
+</body>
+</html>
